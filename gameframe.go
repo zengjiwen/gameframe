@@ -12,8 +12,6 @@ import (
 	"strings"
 )
 
-var _opts options
-
 func Start(serverType, addr string, isFrontend bool, applies ...func(opts *options)) {
 	for _, apply := range applies {
 		apply(&_opts)

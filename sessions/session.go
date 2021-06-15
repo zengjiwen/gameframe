@@ -1,6 +1,8 @@
 package sessions
 
 import (
+	"github.com/zengjiwen/gameframe/codecs"
+	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gamenet"
 	"sync"
 	"sync/atomic"
@@ -34,8 +36,20 @@ func New(c gamenet.Conn) *Session {
 	return s
 }
 
-func (s *Session) Send(data []byte) {
+func (s *Session) Send(route string, arg interface{}) error {
+	payload, err := env.Marshaler.Marshal(arg)
+	if err != nil {
+		return err
+	}
+
+	m := codecs.NewMessage(route, payload)
+	data, err := env.Codec.Encode(m)
+	if err != nil {
+		return err
+	}
+
 	s.conn.Send(data)
+	return nil
 }
 
 func (s *Session) OnClosed() {

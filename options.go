@@ -11,6 +11,8 @@ type options struct {
 	marshaler      marshalers.Marshaler
 }
 
+var _opts options
+
 func WithConcurrentMode(concurrentMode string) func(*options) {
 	return func(opts *options) {
 		opts.concurrentMode = concurrentMode

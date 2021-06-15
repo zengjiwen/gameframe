@@ -1,12 +1,18 @@
 package main
 
-import "github.com/zengjiwen/gameframe"
+import (
+	"github.com/zengjiwen/gameframe"
+	"github.com/zengjiwen/gameframe/services"
+)
 
 func main() {
-	gameframe.RegisterHandler("hello", handleHello)
+	services.RegisterClientHandler("hello", handleHello)
+
 	room := Room{}
-	gameframe.RegisterHandler("room.joinroom", room.joinRoom)
-	gameframe.Start()
+	services.RegisterClientHandler("room.joinRoom", room.joinRoom)
+
+	gameframe.Start("game", "127.0.0.1:6666", true,
+		gameframe.WithConcurrentMode("csp"))
 }
 
 func handleHello() {

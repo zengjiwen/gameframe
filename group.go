@@ -2,7 +2,6 @@ package gameframe
 
 import (
 	"errors"
-	"github.com/zengjiwen/gameframe/codecs"
 	"github.com/zengjiwen/gameframe/sessions"
 	"sync"
 )
@@ -22,50 +21,24 @@ func NewGroup(n string) *Group {
 	}
 }
 
-func (g *Group) Broadcast(route string, arg interface{}) error {
-	payload, err := _app.marshaler.Marshal(arg)
-	if err != nil {
-		return err
-	}
-
-	m := codecs.NewMessage(route, payload)
-	data, err := _app.codec.Encode(m)
-	if err != nil {
-		return err
-	}
-
+func (g *Group) Broadcast(route string, arg interface{}) {
 	g.mu.RLock()
 	for _, mem := range g.members {
-		mem.Send(data)
+		mem.Send(route, arg)
 	}
 	g.mu.RUnlock()
-
-	return nil
 }
 
-func (g *Group) Multicast(route string, arg interface{}, filter func(*sessions.Session) bool) error {
-	payload, err := _app.marshaler.Marshal(arg)
-	if err != nil {
-		return err
-	}
-
-	m := codecs.NewMessage(route, payload)
-	data, err := _app.codec.Encode(m)
-	if err != nil {
-		return err
-	}
-
+func (g *Group) Multicast(route string, arg interface{}, filter func(*sessions.Session) bool) {
 	g.mu.RLock()
 	for _, mem := range g.members {
 		if !filter(mem) {
 			continue
 		}
 
-		mem.Send(data)
+		mem.Send(route, arg)
 	}
 	g.mu.RUnlock()
-
-	return nil
 }
 
 func (g *Group) Join(s *sessions.Session) error {
