@@ -1,9 +1,7 @@
 package sessions
 
 import (
-	"github.com/zengjiwen/gameframe/codecs"
-	"github.com/zengjiwen/gameframe/env"
-	"github.com/zengjiwen/gamenet"
+	peers2 "github.com/zengjiwen/gameframe/services/peers"
 	"sync"
 	"sync/atomic"
 )
@@ -18,15 +16,18 @@ var (
 type Session struct {
 	ID             uint64
 	uid            int
-	conn           gamenet.Conn
+	peer           peers2.Peer
 	context        map[string]interface{}
 	closedCallback func()
+	Route2ServerId map[string]string
 }
 
-func New(c gamenet.Conn) *Session {
+func New(peer peers2.Peer) *Session {
 	s := &Session{
-		ID:   genSessionId(),
-		conn: c,
+		ID:             genSessionId(),
+		peer:           peer,
+		context:        make(map[string]interface{}),
+		Route2ServerId: make(map[string]string),
 	}
 
 	_sessionMu.Lock()
@@ -37,19 +38,7 @@ func New(c gamenet.Conn) *Session {
 }
 
 func (s *Session) Send(route string, arg interface{}) error {
-	payload, err := env.Marshaler.Marshal(arg)
-	if err != nil {
-		return err
-	}
-
-	m := codecs.NewMessage(route, payload)
-	data, err := env.Codec.Encode(m)
-	if err != nil {
-		return err
-	}
-
-	s.conn.Send(data)
-	return nil
+	return s.peer.Send(route, arg)
 }
 
 func (s *Session) OnClosed() {
