@@ -1,31 +1,31 @@
 package sessions
 
 import (
-	peers2 "github.com/zengjiwen/gameframe/services/peers"
+	"github.com/zengjiwen/gameframe/services/proxy"
 	"sync"
 	"sync/atomic"
 )
 
 var (
-	_sessionId             uint64
+	_sessionId             int64
 	_sessionMu             sync.RWMutex
-	_sessions              = make(map[uint64]*Session)
+	_sessions              = make(map[int64]*Session)
 	_sessionClosedCallback func(*Session)
 )
 
 type Session struct {
-	ID             uint64
+	ID             int64
 	uid            int
-	peer           peers2.Peer
+	proxy          proxy.Proxy
 	context        map[string]interface{}
 	closedCallback func()
 	Route2ServerId map[string]string
 }
 
-func New(peer peers2.Peer) *Session {
+func New(p proxy.Proxy) *Session {
 	s := &Session{
 		ID:             genSessionId(),
-		peer:           peer,
+		proxy:          p,
 		context:        make(map[string]interface{}),
 		Route2ServerId: make(map[string]string),
 	}
@@ -33,12 +33,11 @@ func New(peer peers2.Peer) *Session {
 	_sessionMu.Lock()
 	_sessions[s.ID] = s
 	_sessionMu.Unlock()
-
 	return s
 }
 
-func (s *Session) Send(route string, arg interface{}) error {
-	return s.peer.Send(route, arg)
+func (s *Session) Send(route string, payload []byte) error {
+	return s.proxy.Send(route, payload)
 }
 
 func (s *Session) OnClosed() {
@@ -50,8 +49,8 @@ func (s *Session) OnClosed() {
 	_sessionMu.Unlock()
 }
 
-func genSessionId() uint64 {
-	return atomic.AddUint64(&_sessionId, 1)
+func genSessionId() int64 {
+	return atomic.AddInt64(&_sessionId, 1)
 }
 
 func (s *Session) SetClosedCallback(cb func()) {
@@ -60,4 +59,15 @@ func (s *Session) SetClosedCallback(cb func()) {
 
 func SetClosedCallback(cb func(*Session)) {
 	_sessionClosedCallback = cb
+}
+
+func SessionByID(sessionID int64) *Session {
+	_sessionMu.RLock()
+	defer _sessionMu.RUnlock()
+
+	session, ok := _sessions[sessionID]
+	if !ok {
+		return nil
+	}
+	return session
 }

@@ -1,27 +1,29 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"github.com/zengjiwen/gameframe/codecs"
 	"github.com/zengjiwen/gameframe/env"
+	"github.com/zengjiwen/gameframe/rpc"
+	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/sd"
-	"github.com/zengjiwen/gameframe/services/peers"
 	"github.com/zengjiwen/gameframe/sessions"
 	"reflect"
 )
 
 var (
-	HandlerNotExistErr      = errors.New("handler not exist")
-	RemoteServerNotExistErr = errors.New("remote server not exist")
+	ClientHandlerNotExistErr = errors.New("client handler not exist")
+	RemoteServerNotExistErr  = errors.New("remote server not exist")
 )
 
-type ClientHandler struct {
+type clientHandler struct {
 	funv reflect.Value
 	argt reflect.Type
 }
 
 var (
-	_clientHandlers                  = make(map[string]*ClientHandler)
+	_clientHandlers                  = make(map[string]*clientHandler)
 	_remoteClientHandlers2ServerType = make(map[string]string)
 	_sessionType                     = reflect.TypeOf((*sessions.Session)(nil))
 )
@@ -38,7 +40,7 @@ func RegisterClientHandler(route string, ch interface{}) {
 		return
 	}
 
-	handler := &ClientHandler{
+	handler := &clientHandler{
 		funv: reflect.ValueOf(ch),
 		argt: ht.In(0),
 	}
@@ -76,13 +78,18 @@ func HandleClientMsg(session *sessions.Session, message *codecs.Message) ([]byte
 }
 
 func HandleRemoteClientMsg(session *sessions.Session, message *codecs.Message) ([]byte, error) {
-	if serverId, ok := session.Route2ServerId[message.Route]; ok {
-		if r, ok := peers.Remotes[serverId]; ok {
-			respond, err := r.Call(message)
+	if serverID, ok := session.Route2ServerId[message.Route]; ok {
+		if conn, ok := rpc.ClientByServerID(serverID); ok {
+			rpcClient := protos.NewRPCClient(conn)
+			respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
+				Route:    message.Route,
+				Payload:  message.Payload,
+				ServerID: serverID,
+			})
 			if err != nil {
 				return nil, err
 			}
-			return respond.Payload, nil
+			return respond.Data, nil
 		} else {
 			delete(session.Route2ServerId, message.Route)
 		}
@@ -90,7 +97,7 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codecs.Message) (
 
 	serverType, ok := _remoteClientHandlers2ServerType[message.Route]
 	if !ok {
-		return nil, HandlerNotExistErr
+		return nil, ClientHandlerNotExistErr
 	}
 
 	servers, err := sd.SD.GetServersByType(serverType)
@@ -103,16 +110,21 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codecs.Message) (
 		return nil, err
 	}
 
-	r, ok := peers.Remotes[server.ID]
+	conn, ok := rpc.ClientByServerID(server.ID)
 	if !ok {
 		return nil, RemoteServerNotExistErr
 	}
 
 	session.Route2ServerId[message.Route] = server.ID
-	respond, err := r.Call(message)
+	rpcClient := protos.NewRPCClient(conn)
+	respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
+		Route:    message.Route,
+		Payload:  message.Payload,
+		ServerID: server.ID,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return respond.Payload, nil
+	return respond.Data, nil
 }

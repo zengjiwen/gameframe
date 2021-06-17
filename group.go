@@ -2,6 +2,7 @@ package gameframe
 
 import (
 	"errors"
+	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/sessions"
 	"sync"
 )
@@ -11,32 +12,42 @@ var SessionExistErr = errors.New("session exist err")
 type Group struct {
 	name    string
 	mu      sync.RWMutex
-	members map[uint64]*sessions.Session
+	members map[int64]*sessions.Session
 }
 
 func NewGroup(n string) *Group {
 	return &Group{
 		name:    n,
-		members: make(map[uint64]*sessions.Session),
+		members: make(map[int64]*sessions.Session),
 	}
 }
 
 func (g *Group) Broadcast(route string, arg interface{}) {
+	payload, err := env.Marshaler.Marshal(arg)
+	if err != nil {
+		return
+	}
+
 	g.mu.RLock()
 	for _, mem := range g.members {
-		mem.Send(route, arg)
+		mem.Send(route, payload)
 	}
 	g.mu.RUnlock()
 }
 
 func (g *Group) Multicast(route string, arg interface{}, filter func(*sessions.Session) bool) {
+	payload, err := env.Marshaler.Marshal(arg)
+	if err != nil {
+		return
+	}
+
 	g.mu.RLock()
 	for _, mem := range g.members {
 		if !filter(mem) {
 			continue
 		}
 
-		mem.Send(route, arg)
+		mem.Send(route, payload)
 	}
 	g.mu.RUnlock()
 }

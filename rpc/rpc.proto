@@ -1,16 +1,27 @@
 syntax = "proto3";
 package rpc;
-option go_package = "./proto";
+option go_package = "./protos";
 
-message Request {
+message CallRequest {
   string route = 1;
   bytes payload = 2;
+  string serverID = 3;
 }
 
-message Respond {
-  bytes payload = 1;
+message CallRespond {
+  bytes data = 1;
+}
+
+message SendRequest {
+  string route = 1;
+  bytes payload = 2;
+  int64 sessionID = 3;
+}
+
+message SendRespond {
 }
 
 service RPC {
-  rpc Call(Request) returns (Respond) {}
+  rpc Call(CallRequest) returns (CallRespond) {}
+  rpc Send(SendRequest) returns (SendRespond) {}
 }

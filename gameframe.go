@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/services"
+	"github.com/zengjiwen/gameframe/services/proxy"
 	"github.com/zengjiwen/gameframe/sessions"
 	"github.com/zengjiwen/gamenet"
 	"github.com/zengjiwen/gamenet/server"
@@ -64,21 +65,22 @@ func Start(serverType, addr string, isFrontend bool, applies ...func(opts *optio
 type frontendEventCallback struct{}
 
 func (fecb frontendEventCallback) OnNewConn(conn gamenet.Conn) {
-	s := sessions.New(conn)
-	conn.SetUserData(s)
+	clientProxy := proxy.NewClient(conn)
+	session := sessions.New(clientProxy)
+	conn.SetUserData(session)
 }
 
 func (fecb frontendEventCallback) OnConnClosed(conn gamenet.Conn) {
-	s, ok := conn.UserData().(*sessions.Session)
+	session, ok := conn.UserData().(*sessions.Session)
 	if !ok {
 		return
 	}
 
-	s.OnClosed()
+	session.OnClosed()
 }
 
 func (fecb frontendEventCallback) OnRecvData(conn gamenet.Conn, data []byte) {
-	s, ok := conn.UserData().(*sessions.Session)
+	session, ok := conn.UserData().(*sessions.Session)
 	if !ok {
 		return
 	}
@@ -88,7 +90,7 @@ func (fecb frontendEventCallback) OnRecvData(conn gamenet.Conn, data []byte) {
 		return
 	}
 
-	ret, err := services.HandleClientMsg(s, m)
+	ret, err := services.HandleClientMsg(session, m)
 	if err != nil {
 		return
 	}
