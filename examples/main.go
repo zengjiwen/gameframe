@@ -11,7 +11,7 @@ func main() {
 	room := Room{}
 	services.RegisterClientHandler("room.joinRoom", room.joinRoom)
 
-	gameframe.Start("game", "127.0.0.1:6666", true,
+	gameframe.Run("game", "127.0.0.1:6666", true,
 		gameframe.WithConcurrentMode("csp"))
 }
 

@@ -16,14 +16,13 @@ var (
 	SessionNotFoundErr   = errors.New("session not found!")
 )
 
-type service struct {
+type stub struct{}
+
+func NewStub() *stub {
+	return &stub{}
 }
 
-func NewService() *service {
-	return &service{}
-}
-
-func (s *service) Call(_ context.Context, request *protos.CallRequest) (*protos.CallRespond, error) {
+func (s *stub) Call(_ context.Context, request *protos.CallRequest) (*protos.CallRespond, error) {
 	conn, ok := rpc.ClientByServerID(request.ServerID)
 	if !ok {
 		return nil, ClientRpcNotExistErr
@@ -43,7 +42,7 @@ func (s *service) Call(_ context.Context, request *protos.CallRequest) (*protos.
 	}
 }
 
-func (s *service) Send(_ context.Context, request *protos.SendRequest) (*protos.SendRespond, error) {
+func (s *stub) Send(_ context.Context, request *protos.SendRequest) (*protos.SendRespond, error) {
 	session := sessions.SessionByID(request.SessionID)
 	if session == nil {
 		return nil, SessionNotFoundErr

@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func Start(serverType, addr string, isFrontend bool, applies ...func(opts *options)) {
+func Run(serverType, addr string, isFrontend bool, applies ...func(opts *options)) {
 	for _, apply := range applies {
 		apply(&_opts)
 	}

@@ -8,6 +8,7 @@ import (
 var (
 	ServerType     string
 	Addr           string
+	ServiceAddr    string
 	IsFrontend     bool
 	ConcurrentMode                      = "actor"
 	Codec          codecs.Codec         = codecs.NewPlain()
