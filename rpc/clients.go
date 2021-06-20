@@ -5,8 +5,10 @@ import (
 	"sync"
 )
 
-var _mu sync.RWMutex
-var _clients = make(map[string]*grpc.ClientConn)
+var (
+	_mu      sync.RWMutex
+	_clients map[string]*grpc.ClientConn
+)
 
 func ClientByServerID(serverID string) (*grpc.ClientConn, bool) {
 	_mu.RLock()

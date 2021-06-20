@@ -6,11 +6,8 @@ import (
 )
 
 var (
-	ServerType     string
-	Addr           string
-	ServiceAddr    string
-	IsFrontend     bool
-	ConcurrentMode                      = "actor"
-	Codec          codecs.Codec         = codecs.NewPlain()
-	Marshaler      marshalers.Marshaler = marshalers.NewProtobuf()
+	ServerType  string
+	ServiceAddr string
+	Codec       codecs.Codec
+	Marshaler   marshalers.Marshaler
 )

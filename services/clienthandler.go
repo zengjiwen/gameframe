@@ -105,7 +105,7 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codecs.Message) (
 		return nil, err
 	}
 
-	server := sd.GetMinLoadServer(servers)
+	server := sd.GetRandomServer(servers)
 	if server == nil {
 		return nil, err
 	}

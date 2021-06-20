@@ -3,6 +3,7 @@ package gameframe
 import (
 	"fmt"
 	"github.com/zengjiwen/gameframe/env"
+	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/services"
 	"github.com/zengjiwen/gameframe/services/proxy"
 	"github.com/zengjiwen/gameframe/sessions"
@@ -13,18 +14,13 @@ import (
 	"strings"
 )
 
-func Run(serverType, addr string, isFrontend bool, applies ...func(opts *options)) {
+func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 	for _, apply := range applies {
 		apply(&_opts)
 	}
 
 	env.ServerType = serverType
-	env.Addr = addr
-	env.IsFrontend = isFrontend
-
-	if _opts.concurrentMode != "" {
-		env.ConcurrentMode = _opts.concurrentMode
-	}
+	env.ServiceAddr = serviceAddr
 	if _opts.codec != nil {
 		env.Codec = _opts.codec
 	}
@@ -33,10 +29,10 @@ func Run(serverType, addr string, isFrontend bool, applies ...func(opts *options
 	}
 
 	var tcpServer gamenet.Server
-	if isFrontend {
-		if strings.ToLower(env.ConcurrentMode) == "csp" {
+	if _opts.clientAddr != "" {
+		if strings.ToLower(_opts.concurrentMode) == "csp" {
 			eventChan := make(chan func())
-			tcpServer = server.NewServer("tcp", addr, frontendEventCallback{},
+			tcpServer = server.NewServer("tcp", serviceAddr, frontendEventCallback{},
 				server.WithEventChan(eventChan))
 
 			go func() {
@@ -44,22 +40,26 @@ func Run(serverType, addr string, isFrontend bool, applies ...func(opts *options
 					event()
 				}
 			}()
-		} else if strings.ToLower(env.ConcurrentMode) == "actor" {
+		} else if strings.ToLower(_opts.concurrentMode) == "actor" {
 			tcpServer = server.NewServer("tcp", "127.0.0.1:0", frontendEventCallback{})
 		} else {
-			panic(fmt.Sprintf("incorrect concurrent mode: %s", env.ConcurrentMode))
+			panic(fmt.Sprintf("incorrect concurrent mode: %s", _opts.concurrentMode))
 		}
 
 		go tcpServer.ListenAndServe()
+	}
+	if err := rpc.StartServer(services.NewStub()); err != nil {
+		panic(err)
 	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
 	<-c
 
-	if isFrontend {
+	if tcpServer != nil {
 		tcpServer.Shutdown()
 	}
+	rpc.StopServer()
 }
 
 type frontendEventCallback struct{}

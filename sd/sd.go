@@ -21,7 +21,3 @@ type ServiceDiscovery interface {
 func GetRandomServer(map[string]*Server) *Server {
 	return nil
 }
-
-func GetMinLoadServer(map[string]*Server) *Server {
-	return nil
-}
