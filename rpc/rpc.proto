@@ -25,3 +25,11 @@ service RPC {
   rpc Call(CallRequest) returns (CallRespond) {}
   rpc Send(SendRequest) returns (SendRespond) {}
 }
+
+message Server {
+  string ID = 1;
+  string Type = 2;
+  string Addr = 3;
+  repeated string ClientHandlers = 4;
+  repeated string ServerHandlers = 5;
+}
