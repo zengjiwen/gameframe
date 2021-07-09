@@ -14,6 +14,11 @@ import (
 	"strings"
 )
 
+var _gameFrame *gameFrame
+
+type gameFrame struct {
+}
+
 func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 	for _, apply := range applies {
 		apply(&_opts)

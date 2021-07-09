@@ -3,12 +3,11 @@ package gameframe
 import (
 	"github.com/zengjiwen/gameframe/codecs"
 	"github.com/zengjiwen/gameframe/marshalers"
+	"github.com/zengjiwen/gameframe/servicediscovery"
 )
 
 var _opts = options{
 	concurrentMode: "actor",
-	codec:          codecs.NewPlain(),
-	marshaler:      marshalers.NewProtobuf(),
 }
 
 type options struct {
@@ -16,6 +15,7 @@ type options struct {
 	codec          codecs.Codec
 	marshaler      marshalers.Marshaler
 	clientAddr     string
+	sd             servicediscovery.ServiceDiscovery
 }
 
 func WithConcurrentMode(concurrentMode string) func(*options) {
@@ -39,5 +39,11 @@ func WithMarshaler(marshaler marshalers.Marshaler) func(*options) {
 func WithClientAddr(clientAddr string) func(*options) {
 	return func(opts *options) {
 		opts.clientAddr = clientAddr
+	}
+}
+
+func WithServiceDiscovery(sd servicediscovery.ServiceDiscovery) func(*options) {
+	return func(opts *options) {
+		opts.sd = sd
 	}
 }

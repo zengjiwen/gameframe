@@ -1,4 +1,4 @@
-package sd
+package servicediscovery
 
 type Server struct {
 	ID             string
@@ -8,14 +8,7 @@ type Server struct {
 	ServerHandlers []string
 }
 
-var SD = newEtcdSD()
-
 type ServiceDiscovery interface {
-	GetServersByType(serverType string) (map[string]*Server, error)
+	GetRandomServer(serverType string) (*Server, error)
 	GetServer(serverID string) (*Server, error)
-	GetServers() []*Server
-}
-
-func GetRandomServer(map[string]*Server) *Server {
-	return nil
 }

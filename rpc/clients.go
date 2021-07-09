@@ -1,7 +1,7 @@
 package rpc
 
 import (
-	"github.com/zengjiwen/gameframe/sd"
+	"github.com/zengjiwen/gameframe/servicediscovery"
 	"google.golang.org/grpc"
 	"sync"
 )
@@ -19,7 +19,7 @@ func ClientByServerID(serverID string) (*grpc.ClientConn, bool) {
 	return client, ok
 }
 
-func OnServerAdded(server *sd.Server) {
+func OnServerAdded(server *servicediscovery.Server) {
 	_mu.RLock()
 	_, ok := _clients[server.ID]
 	if ok {
@@ -38,7 +38,7 @@ func OnServerAdded(server *sd.Server) {
 	_mu.Unlock()
 }
 
-func OnServerRemoved(server *sd.Server) {
+func OnServerRemoved(server *servicediscovery.Server) {
 	_mu.Lock()
 	delete(_clients, server.ID)
 	_mu.Unlock()

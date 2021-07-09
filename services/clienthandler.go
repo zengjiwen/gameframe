@@ -7,7 +7,6 @@ import (
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
-	"github.com/zengjiwen/gameframe/sd"
 	"github.com/zengjiwen/gameframe/sessions"
 	"reflect"
 )
@@ -100,13 +99,8 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codecs.Message) (
 		return nil, ClientHandlerNotExistErr
 	}
 
-	servers, err := sd.SD.GetServersByType(serverType)
+	server, err := env.SD.GetRandomServer(serverType)
 	if err != nil {
-		return nil, err
-	}
-
-	server := sd.GetRandomServer(servers)
-	if server == nil {
 		return nil, err
 	}
 

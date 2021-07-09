@@ -9,13 +9,13 @@ var (
 	MsgTypeErr = errors.New("msg type err")
 )
 
-type Protobuf struct{}
+type protobuf struct{}
 
-func NewProtobuf() Protobuf {
-	return Protobuf{}
+func NewProtobuf() Marshaler {
+	return protobuf{}
 }
 
-func (p Protobuf) Marshal(msg interface{}) ([]byte, error) {
+func (p protobuf) Marshal(msg interface{}) ([]byte, error) {
 	protoMsg, ok := msg.(proto.Message)
 	if !ok {
 		return nil, MsgTypeErr
@@ -24,7 +24,7 @@ func (p Protobuf) Marshal(msg interface{}) ([]byte, error) {
 	return proto.Marshal(protoMsg)
 }
 
-func (p Protobuf) Unmarshal(payload []byte, msg interface{}) error {
+func (p protobuf) Unmarshal(payload []byte, msg interface{}) error {
 	protoMsg, ok := msg.(proto.Message)
 	if !ok {
 		return MsgTypeErr

@@ -1,13 +1,13 @@
 package codecs
 
 // todo pool
-type Plain struct{}
+type plain struct{}
 
-func NewPlain() Plain {
-	return Plain{}
+func NewPlain() Codec {
+	return plain{}
 }
 
-func (p Plain) Encode(m *Message) ([]byte, error) {
+func (p plain) Encode(m *Message) ([]byte, error) {
 	data := make([]byte, 0, 1+len(m.Route)+len(m.Payload))
 	data = append(data, byte(len(m.Route)))
 	data = append(data, []byte(m.Route)...)
@@ -15,7 +15,7 @@ func (p Plain) Encode(m *Message) ([]byte, error) {
 	return data, nil
 }
 
-func (p Plain) Decode(data []byte) (*Message, error) {
+func (p plain) Decode(data []byte) (*Message, error) {
 	if len(data) == 0 {
 		return nil, MessageLenErr
 	}
