@@ -1,8 +1,8 @@
 package gameframe
 
 import (
-	"github.com/zengjiwen/gameframe/codecs"
-	"github.com/zengjiwen/gameframe/marshalers"
+	"github.com/zengjiwen/gameframe/codec"
+	"github.com/zengjiwen/gameframe/marshaler"
 	"github.com/zengjiwen/gameframe/servicediscovery"
 )
 
@@ -12,8 +12,8 @@ var _opts = options{
 
 type options struct {
 	concurrentMode string
-	codec          codecs.Codec
-	marshaler      marshalers.Marshaler
+	codec          codec.Codec
+	marshaler      marshaler.Marshaler
 	clientAddr     string
 	sd             servicediscovery.ServiceDiscovery
 }
@@ -24,13 +24,13 @@ func WithConcurrentMode(concurrentMode string) func(*options) {
 	}
 }
 
-func WithCodec(codec codecs.Codec) func(*options) {
+func WithCodec(codec codec.Codec) func(*options) {
 	return func(opts *options) {
 		opts.codec = codec
 	}
 }
 
-func WithMarshaler(marshaler marshalers.Marshaler) func(*options) {
+func WithMarshaler(marshaler marshaler.Marshaler) func(*options) {
 	return func(opts *options) {
 		opts.marshaler = marshaler
 	}

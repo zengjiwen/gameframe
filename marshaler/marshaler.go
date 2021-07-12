@@ -1,4 +1,4 @@
-package marshalers
+package marshaler
 
 type Marshaler interface {
 	Marshal(arg interface{}) ([]byte, error)

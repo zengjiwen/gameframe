@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/servicediscovery"
 	"google.golang.org/grpc"
 	"sync"
@@ -8,10 +9,10 @@ import (
 
 var (
 	_mu      sync.RWMutex
-	_clients map[string]*grpc.ClientConn
+	_clients map[string]protos.RPCClient
 )
 
-func ClientByServerID(serverID string) (*grpc.ClientConn, bool) {
+func ClientByServerID(serverID string) (protos.RPCClient, bool) {
 	_mu.RLock()
 	defer _mu.RUnlock()
 
@@ -19,7 +20,7 @@ func ClientByServerID(serverID string) (*grpc.ClientConn, bool) {
 	return client, ok
 }
 
-func OnServerAdded(server *servicediscovery.Server) {
+func OnAddServer(server *servicediscovery.Server) {
 	_mu.RLock()
 	_, ok := _clients[server.ID]
 	if ok {
@@ -34,11 +35,11 @@ func OnServerAdded(server *servicediscovery.Server) {
 	}
 
 	_mu.Lock()
-	_clients[server.ID] = conn
+	_clients[server.ID] = protos.NewRPCClient(conn)
 	_mu.Unlock()
 }
 
-func OnServerRemoved(server *servicediscovery.Server) {
+func OnRemoveServer(server *servicediscovery.Server) {
 	_mu.Lock()
 	delete(_clients, server.ID)
 	_mu.Unlock()

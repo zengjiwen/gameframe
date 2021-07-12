@@ -2,7 +2,7 @@ package services
 
 import (
 	"errors"
-	"github.com/zengjiwen/gameframe/codecs"
+	"github.com/zengjiwen/gameframe/codec"
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/sessions"
 	"google.golang.org/protobuf/proto"
@@ -39,7 +39,7 @@ func RegisterServerHandler(route string, sh interface{}) {
 	_serverHandlers[route] = handler
 }
 
-func HandleServerMsg(session *sessions.Session, message *codecs.Message) ([]byte, error) {
+func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
 	handler, ok := _serverHandlers[message.Route]
 	if !ok {
 		return nil, ServerHandlerNotExistErr

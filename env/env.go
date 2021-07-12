@@ -1,15 +1,15 @@
 package env
 
 import (
-	"github.com/zengjiwen/gameframe/codecs"
-	"github.com/zengjiwen/gameframe/marshalers"
+	"github.com/zengjiwen/gameframe/codec"
+	"github.com/zengjiwen/gameframe/marshaler"
 	"github.com/zengjiwen/gameframe/servicediscovery"
 )
 
 var (
 	ServerType  string
 	ServiceAddr string
-	Codec       = codecs.NewPlain()
-	Marshaler   = marshalers.NewProtobuf()
+	Codec       = codec.NewPlain()
+	Marshaler   = marshaler.NewProtobuf()
 	SD          = servicediscovery.NewEtcd()
 )

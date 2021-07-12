@@ -1,4 +1,4 @@
-package marshalers
+package marshaler
 
 import (
 	"errors"

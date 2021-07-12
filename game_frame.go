@@ -70,8 +70,8 @@ func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 type frontendEventCallback struct{}
 
 func (fecb frontendEventCallback) OnNewConn(conn gamenet.Conn) {
-	clientProxy := proxy.NewClient(conn)
-	session := sessions.New(clientProxy)
+	frontendProxy := proxy.NewFrontend(conn)
+	session := sessions.New(frontendProxy)
 	conn.SetUserData(session)
 }
 

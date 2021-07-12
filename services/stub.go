@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"errors"
-	"github.com/zengjiwen/gameframe/codecs"
+	"github.com/zengjiwen/gameframe/codec"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/services/proxy"
@@ -23,14 +23,14 @@ func NewStub() *stub {
 }
 
 func (s *stub) Call(_ context.Context, request *protos.CallRequest) (*protos.CallRespond, error) {
-	conn, ok := rpc.ClientByServerID(request.ServerID)
+	rpcClient, ok := rpc.ClientByServerID(request.ServerID)
 	if !ok {
 		return nil, ClientRpcNotExistErr
 	}
 
-	serverProxy := proxy.NewServer(conn)
-	session := sessions.New(serverProxy)
-	message := codecs.NewMessage(request.Route, request.Payload)
+	backendProxy := proxy.NewBackend(rpcClient)
+	session := sessions.New(backendProxy)
+	message := codec.NewMessage(request.Route, request.Payload)
 	if _, ok := _clientHandlers[request.Route]; ok {
 		retData, err := HandleClientMsg(session, message)
 		return &protos.CallRespond{Data: retData}, err

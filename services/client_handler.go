@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"errors"
-	"github.com/zengjiwen/gameframe/codecs"
+	"github.com/zengjiwen/gameframe/codec"
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
@@ -46,7 +46,7 @@ func RegisterClientHandler(route string, ch interface{}) {
 	_clientHandlers[route] = handler
 }
 
-func HandleClientMsg(session *sessions.Session, message *codecs.Message) ([]byte, error) {
+func HandleClientMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
 	handler, ok := _clientHandlers[message.Route]
 	if !ok {
 		return HandleRemoteClientMsg(session, message)
@@ -76,10 +76,9 @@ func HandleClientMsg(session *sessions.Session, message *codecs.Message) ([]byte
 	return retData, nil
 }
 
-func HandleRemoteClientMsg(session *sessions.Session, message *codecs.Message) ([]byte, error) {
+func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
 	if serverID, ok := session.Route2ServerId[message.Route]; ok {
-		if conn, ok := rpc.ClientByServerID(serverID); ok {
-			rpcClient := protos.NewRPCClient(conn)
+		if rpcClient, ok := rpc.ClientByServerID(serverID); ok {
 			respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
 				Route:    message.Route,
 				Payload:  message.Payload,
@@ -104,13 +103,12 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codecs.Message) (
 		return nil, err
 	}
 
-	conn, ok := rpc.ClientByServerID(server.ID)
+	rpcClient, ok := rpc.ClientByServerID(server.ID)
 	if !ok {
 		return nil, RemoteServerNotExistErr
 	}
 
 	session.Route2ServerId[message.Route] = server.ID
-	rpcClient := protos.NewRPCClient(conn)
 	respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
 		Route:    message.Route,
 		Payload:  message.Payload,
