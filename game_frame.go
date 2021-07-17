@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
+	"github.com/zengjiwen/gameframe/servicediscovery"
 	"github.com/zengjiwen/gameframe/services"
 	"github.com/zengjiwen/gameframe/services/proxy"
 	"github.com/zengjiwen/gameframe/sessions"
@@ -32,21 +33,27 @@ func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 	if _opts.marshaler != nil {
 		env.Marshaler = _opts.marshaler
 	}
+	if _opts.sd != nil {
+		env.SD = _opts.sd
+	} else if _opts.sdAddr != "" {
+		env.SD = servicediscovery.NewEtcd(_opts.sdAddr)
+	} else {
+		panic("please specify sd or sd addr!")
+	}
 
 	var tcpServer gamenet.Server
 	if _opts.clientAddr != "" {
+		cb := frontendEventCallback{}
 		if strings.ToLower(_opts.concurrentMode) == "csp" {
 			eventChan := make(chan func())
-			tcpServer = server.NewServer("tcp", serviceAddr, frontendEventCallback{},
-				server.WithEventChan(eventChan))
-
+			tcpServer = server.NewServer("tcp", _opts.clientAddr, cb, server.WithEventChan(eventChan))
 			go func() {
 				for event := range eventChan {
 					event()
 				}
 			}()
 		} else if strings.ToLower(_opts.concurrentMode) == "actor" {
-			tcpServer = server.NewServer("tcp", "127.0.0.1:0", frontendEventCallback{})
+			tcpServer = server.NewServer("tcp", _opts.clientAddr, cb)
 		} else {
 			panic(fmt.Sprintf("incorrect concurrent mode: %s", _opts.concurrentMode))
 		}
@@ -60,7 +67,11 @@ func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
-	<-c
+	select {
+	case <-c:
+		close(env.DieChan)
+	case <-env.DieChan:
+	}
 
 	if tcpServer != nil {
 		tcpServer.Shutdown()
@@ -70,13 +81,13 @@ func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 
 type frontendEventCallback struct{}
 
-func (fecb frontendEventCallback) OnNewConn(conn gamenet.Conn) {
+func (frontendEventCallback) OnNewConn(conn gamenet.Conn) {
 	frontendProxy := proxy.NewFrontend(conn)
 	session := sessions.New(frontendProxy)
 	conn.SetUserData(session)
 }
 
-func (fecb frontendEventCallback) OnConnClosed(conn gamenet.Conn) {
+func (frontendEventCallback) OnConnClosed(conn gamenet.Conn) {
 	session, ok := conn.UserData().(*sessions.Session)
 	if !ok {
 		return
@@ -85,7 +96,7 @@ func (fecb frontendEventCallback) OnConnClosed(conn gamenet.Conn) {
 	session.OnClosed()
 }
 
-func (fecb frontendEventCallback) OnRecvData(conn gamenet.Conn, data []byte) {
+func (frontendEventCallback) OnRecvData(conn gamenet.Conn, data []byte) {
 	session, ok := conn.UserData().(*sessions.Session)
 	if !ok {
 		return

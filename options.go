@@ -16,6 +16,7 @@ type options struct {
 	marshaler      marshaler.Marshaler
 	clientAddr     string
 	sd             servicediscovery.ServiceDiscovery
+	sdAddr         string
 }
 
 func WithConcurrentMode(concurrentMode string) func(*options) {
@@ -45,5 +46,11 @@ func WithClientAddr(clientAddr string) func(*options) {
 func WithServiceDiscovery(sd servicediscovery.ServiceDiscovery) func(*options) {
 	return func(opts *options) {
 		opts.sd = sd
+	}
+}
+
+func WithSDAddr(sdAddr string) func(*options) {
+	return func(opts *options) {
+		opts.sdAddr = sdAddr
 	}
 }

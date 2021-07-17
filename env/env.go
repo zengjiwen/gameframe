@@ -9,7 +9,8 @@ import (
 var (
 	ServerType  string
 	ServiceAddr string
+	DieChan     = make(chan struct{})
 	Codec       = codec.NewPlain()
 	Marshaler   = marshaler.NewProtobuf()
-	SD          = servicediscovery.NewEtcd()
+	SD          servicediscovery.ServiceDiscovery
 )

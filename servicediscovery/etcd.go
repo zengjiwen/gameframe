@@ -2,6 +2,7 @@ package servicediscovery
 
 import (
 	"context"
+	"github.com/zengjiwen/gameframe/env"
 	"go.etcd.io/etcd/clientv3"
 	"time"
 )
@@ -10,6 +11,7 @@ type etcd struct {
 	client  *clientv3.Client
 	leaseID clientv3.LeaseID
 	sl      ServerListener
+	dieChan chan struct{}
 }
 
 func NewEtcd(addr string) ServiceDiscovery {
@@ -24,6 +26,7 @@ func NewEtcd(addr string) ServiceDiscovery {
 	sd := &etcd{
 		client:  client,
 		leaseID: clientv3.NoLease,
+		dieChan: make(chan struct{}),
 	}
 	return sd
 }
@@ -47,13 +50,14 @@ func (e *etcd) Init() error {
 
 func (e *etcd) keepAlive(c <-chan *clientv3.LeaseKeepAliveResponse) {
 	for {
-		// todo select frame die chan
 		select {
 		case _, ok := <-c:
 			if !ok {
-				// todo stop frame
+				env.DieChan <- struct{}{}
 				return
 			}
+		case <-e.dieChan:
+			return
 		}
 	}
 }
