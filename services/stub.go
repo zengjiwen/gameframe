@@ -23,7 +23,7 @@ func NewStub() *stub {
 }
 
 func (s *stub) Call(_ context.Context, request *protos.CallRequest) (*protos.CallRespond, error) {
-	rpcClient, ok := rpc.ClientByServerID(request.ServerID)
+	rpcClient, ok := rpc.Clients.ClientByServerID(request.ServerID)
 	if !ok {
 		return nil, ClientRpcNotExistErr
 	}

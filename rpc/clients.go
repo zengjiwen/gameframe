@@ -7,40 +7,49 @@ import (
 	"sync"
 )
 
-var (
-	_mu      sync.RWMutex
-	_clients map[string]protos.RPCClient
-)
-
-func ClientByServerID(serverID string) (protos.RPCClient, bool) {
-	_mu.RLock()
-	defer _mu.RUnlock()
-
-	client, ok := _clients[serverID]
-	return client, ok
+var Clients = &clients{
+	conns: make(map[string]*grpc.ClientConn),
 }
 
-func OnAddServer(server *servicediscovery.Server) {
-	_mu.RLock()
-	_, ok := _clients[server.ID]
+type clients struct {
+	mu    sync.RWMutex
+	conns map[string]*grpc.ClientConn
+}
+
+func (c *clients) ClientByServerID(serverID string) (protos.RPCClient, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	conn, ok := c.conns[serverID]
+	return protos.NewRPCClient(conn), ok
+}
+
+func (c *clients) OnAddServer(server *servicediscovery.Server) {
+	c.mu.RLock()
+	_, ok := c.conns[server.ID]
 	if ok {
-		_mu.RUnlock()
+		c.mu.RUnlock()
 		return
 	}
-	_mu.RUnlock()
+	c.mu.RUnlock()
 
 	conn, err := grpc.Dial(server.Addr, grpc.WithInsecure())
 	if err != nil {
 		return
 	}
 
-	_mu.Lock()
-	_clients[server.ID] = protos.NewRPCClient(conn)
-	_mu.Unlock()
+	c.mu.Lock()
+	c.conns[server.ID] = conn
+	c.mu.Unlock()
 }
 
-func OnRemoveServer(server *servicediscovery.Server) {
-	_mu.Lock()
-	delete(_clients, server.ID)
-	_mu.Unlock()
+func (c *clients) OnRemoveServer(server *servicediscovery.Server) {
+	c.mu.Lock()
+	conn, ok := c.conns[server.ID]
+	delete(c.conns, server.ID)
+	c.mu.Unlock()
+
+	if ok {
+		conn.Close()
+	}
 }

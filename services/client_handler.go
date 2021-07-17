@@ -78,7 +78,7 @@ func HandleClientMsg(session *sessions.Session, message *codec.Message) ([]byte,
 
 func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
 	if serverID, ok := session.Route2ServerId[message.Route]; ok {
-		if rpcClient, ok := rpc.ClientByServerID(serverID); ok {
+		if rpcClient, ok := rpc.Clients.ClientByServerID(serverID); ok {
 			respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
 				Route:    message.Route,
 				Payload:  message.Payload,
@@ -103,7 +103,7 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([
 		return nil, err
 	}
 
-	rpcClient, ok := rpc.ClientByServerID(server.ID)
+	rpcClient, ok := rpc.Clients.ClientByServerID(server.ID)
 	if !ok {
 		return nil, RemoteServerNotExistErr
 	}
