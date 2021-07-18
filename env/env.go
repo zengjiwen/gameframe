@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	ServerID    string
 	ServerType  string
 	ServiceAddr string
 	DieChan     = make(chan struct{})

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/zengjiwen/gameframe/codec"
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
@@ -22,7 +23,8 @@ type clientHandler struct {
 }
 
 var (
-	_clientHandlers                  = make(map[string]*clientHandler)
+	ClientHandlers = make(map[string]*clientHandler)
+	// todo listener
 	_remoteClientHandlers2ServerType = make(map[string]string)
 	_sessionType                     = reflect.TypeOf((*sessions.Session)(nil))
 )
@@ -43,11 +45,11 @@ func RegisterClientHandler(route string, ch interface{}) {
 		funv: reflect.ValueOf(ch),
 		argt: ht.In(0),
 	}
-	_clientHandlers[route] = handler
+	ClientHandlers[route] = handler
 }
 
 func HandleClientMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
-	handler, ok := _clientHandlers[message.Route]
+	handler, ok := ClientHandlers[message.Route]
 	if !ok {
 		return HandleRemoteClientMsg(session, message)
 	}
@@ -82,7 +84,7 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([
 			respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
 				Route:    message.Route,
 				Payload:  message.Payload,
-				ServerID: serverID,
+				ServerID: env.ServerID,
 			})
 			if err != nil {
 				return nil, err
@@ -98,21 +100,21 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([
 		return nil, ClientHandlerNotExistErr
 	}
 
-	server, err := env.SD.GetRandomServer(serverType)
-	if err != nil {
-		return nil, err
+	serverInfo, ok := env.SD.GetRandomServer(serverType)
+	if !ok {
+		return nil, fmt.Errorf("get random server fail! server type:%s", serverType)
 	}
 
-	rpcClient, ok := rpc.Clients.ClientByServerID(server.ID)
+	rpcClient, ok := rpc.Clients.ClientByServerID(serverInfo.ID)
 	if !ok {
 		return nil, RemoteServerNotExistErr
 	}
 
-	session.Route2ServerId[message.Route] = server.ID
+	session.Route2ServerId[message.Route] = serverInfo.ID
 	respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
 		Route:    message.Route,
 		Payload:  message.Payload,
-		ServerID: server.ID,
+		ServerID: env.ServerID,
 	})
 	if err != nil {
 		return nil, err

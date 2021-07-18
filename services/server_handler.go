@@ -1,23 +1,27 @@
 package services
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"github.com/zengjiwen/gameframe/codec"
 	"github.com/zengjiwen/gameframe/env"
+	"github.com/zengjiwen/gameframe/rpc"
+	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/sessions"
 	"google.golang.org/protobuf/proto"
 	"reflect"
 )
-
-var ServerHandlerNotExistErr = errors.New("server handler not exist!")
 
 type serverHandler struct {
 	funv reflect.Value
 	argt reflect.Type
 }
 
-var _serverHandlers = make(map[string]*serverHandler)
-var _remoteServerHandlers2ServerType = make(map[string]int)
+var ServerHandlers = make(map[string]*serverHandler)
+
+// todo listener
+var _remoteServerHandlers2ServerType = make(map[string]string)
 var _protoMsgType = reflect.TypeOf(proto.Message(nil)).Elem()
 
 func RegisterServerHandler(route string, sh interface{}) {
@@ -36,13 +40,13 @@ func RegisterServerHandler(route string, sh interface{}) {
 		funv: reflect.ValueOf(sh),
 		argt: ht.In(0),
 	}
-	_serverHandlers[route] = handler
+	ServerHandlers[route] = handler
 }
 
 func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
-	handler, ok := _serverHandlers[message.Route]
+	handler, ok := ServerHandlers[message.Route]
 	if !ok {
-		return nil, ServerHandlerNotExistErr
+		return nil, errors.New("server handler not exist!")
 	}
 
 	argi := reflect.New(handler.argt.Elem()).Interface()
@@ -67,4 +71,37 @@ func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte,
 	}
 
 	return retData, nil
+}
+
+func RPC(route string, arg proto.Message, ret proto.Message) error {
+	serverType, ok := _remoteServerHandlers2ServerType[route]
+	if !ok {
+		return fmt.Errorf("server handler not found! route:%s", route)
+	}
+
+	serverInfo, ok := env.SD.GetRandomServer(serverType)
+	if !ok {
+		return fmt.Errorf("get random server fail! server type:%s", serverType)
+	}
+
+	rpcClient, ok := rpc.Clients.ClientByServerID(serverInfo.ID)
+	if !ok {
+		return fmt.Errorf("rpc client not found! server id:%s", serverInfo.ID)
+	}
+
+	argBytes, err := proto.Marshal(arg)
+	if err != nil {
+		return err
+	}
+
+	resp, err := rpcClient.Call(context.Background(), &protos.CallRequest{
+		Route:    route,
+		Payload:  argBytes,
+		ServerID: env.ServerID,
+	})
+	if err != nil {
+		return err
+	}
+
+	return proto.Unmarshal(resp.Data, ret)
 }

@@ -24,7 +24,7 @@ func (c *clients) ClientByServerID(serverID string) (protos.RPCClient, bool) {
 	return protos.NewRPCClient(conn), ok
 }
 
-func (c *clients) OnAddServer(server *servicediscovery.Server) {
+func (c *clients) OnAddServer(server *servicediscovery.ServerInfo) {
 	c.mu.RLock()
 	_, ok := c.conns[server.ID]
 	if ok {
@@ -43,7 +43,7 @@ func (c *clients) OnAddServer(server *servicediscovery.Server) {
 	c.mu.Unlock()
 }
 
-func (c *clients) OnRemoveServer(server *servicediscovery.Server) {
+func (c *clients) OnRemoveServer(server *servicediscovery.ServerInfo) {
 	c.mu.Lock()
 	conn, ok := c.conns[server.ID]
 	delete(c.conns, server.ID)

@@ -23,18 +23,18 @@ func NewStub() *stub {
 }
 
 func (s *stub) Call(_ context.Context, request *protos.CallRequest) (*protos.CallRespond, error) {
-	rpcClient, ok := rpc.Clients.ClientByServerID(request.ServerID)
+	clientForReturn, ok := rpc.Clients.ClientByServerID(request.ServerID)
 	if !ok {
 		return nil, ClientRpcNotExistErr
 	}
 
-	backendProxy := proxy.NewBackend(rpcClient)
+	backendProxy := proxy.NewBackend(clientForReturn)
 	session := sessions.New(backendProxy)
 	message := codec.NewMessage(request.Route, request.Payload)
-	if _, ok := _clientHandlers[request.Route]; ok {
+	if _, ok := ClientHandlers[request.Route]; ok {
 		retData, err := HandleClientMsg(session, message)
 		return &protos.CallRespond{Data: retData}, err
-	} else if _, ok := _serverHandlers[request.Route]; ok {
+	} else if _, ok := ServerHandlers[request.Route]; ok {
 		retData, err := HandleServerMsg(session, message)
 		return &protos.CallRespond{Data: retData}, err
 	} else {
