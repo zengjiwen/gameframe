@@ -8,6 +8,7 @@ import (
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
+	"github.com/zengjiwen/gameframe/servicediscovery"
 	"github.com/zengjiwen/gameframe/sessions"
 	"reflect"
 )
@@ -22,10 +23,26 @@ type clientHandler struct {
 	argt reflect.Type
 }
 
+var ClientHandlers = make(map[string]*clientHandler)
+
+type remoteClientHandlers map[string]string
+
+func (r remoteClientHandlers) OnAddServer(serverInfo *servicediscovery.ServerInfo) {
+	for _, handler := range serverInfo.ClientHandlers {
+		r[handler] = serverInfo.Type
+	}
+}
+
+func (r remoteClientHandlers) OnRemoveServer(serverInfo *servicediscovery.ServerInfo) {
+	for handler, serverType := range r {
+		if serverType == serverInfo.Type {
+			delete(r, handler)
+		}
+	}
+}
+
 var (
-	ClientHandlers = make(map[string]*clientHandler)
-	// todo listener
-	_remoteClientHandlers2ServerType = make(map[string]string)
+	_remoteClientHandlers2ServerType = make(remoteClientHandlers)
 	_sessionType                     = reflect.TypeOf((*sessions.Session)(nil))
 )
 

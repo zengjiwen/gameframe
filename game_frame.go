@@ -63,7 +63,6 @@ func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 	if err := rpc.StartServer(services.NewStub()); err != nil {
 		panic(err)
 	}
-	env.SD.AddServerListener(rpc.Clients)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)

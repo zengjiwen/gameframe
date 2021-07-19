@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/servicediscovery"
 	"google.golang.org/grpc"
@@ -14,6 +15,10 @@ var Clients = &clients{
 type clients struct {
 	mu    sync.RWMutex
 	conns map[string]*grpc.ClientConn
+}
+
+func (c *clients) Init() {
+	env.SD.AddServerListener(c)
 }
 
 func (c *clients) ClientByServerID(serverID string) (protos.RPCClient, bool) {

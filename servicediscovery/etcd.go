@@ -110,9 +110,9 @@ func (e *etcd) watch() {
 
 				switch event.Type {
 				case storagepb.PUT:
-					e.doAddServer(serverInfo)
+					e.addServer(serverInfo)
 				case storagepb.DELETE:
-					e.doRemoveServer(serverInfo)
+					e.removeServer(serverInfo)
 				}
 			}
 			e.mu.Unlock()

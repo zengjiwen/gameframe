@@ -8,6 +8,7 @@ import (
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
+	"github.com/zengjiwen/gameframe/servicediscovery"
 	"github.com/zengjiwen/gameframe/sessions"
 	"google.golang.org/protobuf/proto"
 	"reflect"
@@ -20,9 +21,26 @@ type serverHandler struct {
 
 var ServerHandlers = make(map[string]*serverHandler)
 
-// todo listener
-var _remoteServerHandlers2ServerType = make(map[string]string)
-var _protoMsgType = reflect.TypeOf(proto.Message(nil)).Elem()
+type remoteServerHandlers map[string]string
+
+func (s remoteServerHandlers) OnAddServer(serverInfo *servicediscovery.ServerInfo) {
+	for _, handler := range serverInfo.ServerHandlers {
+		s[handler] = serverInfo.Type
+	}
+}
+
+func (s remoteServerHandlers) OnRemoveServer(serverInfo *servicediscovery.ServerInfo) {
+	for handler, serverType := range s {
+		if serverType == serverInfo.Type {
+			delete(s, handler)
+		}
+	}
+}
+
+var (
+	_remoteServerHandlers = make(remoteServerHandlers)
+	_protoMsgType         = reflect.TypeOf(proto.Message(nil)).Elem()
+)
 
 func RegisterServerHandler(route string, sh interface{}) {
 	ht := reflect.TypeOf(sh)
@@ -74,7 +92,7 @@ func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte,
 }
 
 func RPC(route string, arg proto.Message, ret proto.Message) error {
-	serverType, ok := _remoteServerHandlers2ServerType[route]
+	serverType, ok := _remoteServerHandlers[route]
 	if !ok {
 		return fmt.Errorf("server handler not found! route:%s", route)
 	}
