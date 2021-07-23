@@ -18,12 +18,14 @@ var (
 	RemoteServerNotExistErr  = errors.New("remote server not exist")
 )
 
+var ClientHandlers = make(map[string]*clientHandler)
+
 type clientHandler struct {
 	funv reflect.Value
 	argt reflect.Type
 }
 
-var ClientHandlers = make(map[string]*clientHandler)
+var RemoteClientHandlers = make(remoteClientHandlers)
 
 type remoteClientHandlers map[string]string
 
@@ -41,10 +43,7 @@ func (r remoteClientHandlers) OnRemoveServer(serverInfo *servicediscovery.Server
 	}
 }
 
-var (
-	_remoteClientHandlers2ServerType = make(remoteClientHandlers)
-	_sessionType                     = reflect.TypeOf((*sessions.Session)(nil))
-)
+var _sessionType = reflect.TypeOf((*sessions.Session)(nil))
 
 func RegisterClientHandler(route string, ch interface{}) {
 	ht := reflect.TypeOf(ch)
@@ -112,7 +111,7 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([
 		}
 	}
 
-	serverType, ok := _remoteClientHandlers2ServerType[message.Route]
+	serverType, ok := RemoteClientHandlers[message.Route]
 	if !ok {
 		return nil, ClientHandlerNotExistErr
 	}

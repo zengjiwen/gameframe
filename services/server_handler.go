@@ -14,12 +14,14 @@ import (
 	"reflect"
 )
 
+var ServerHandlers = make(map[string]*serverHandler)
+
 type serverHandler struct {
 	funv reflect.Value
 	argt reflect.Type
 }
 
-var ServerHandlers = make(map[string]*serverHandler)
+var RemoteServerHandlers = make(remoteServerHandlers)
 
 type remoteServerHandlers map[string]string
 
@@ -37,10 +39,7 @@ func (s remoteServerHandlers) OnRemoveServer(serverInfo *servicediscovery.Server
 	}
 }
 
-var (
-	_remoteServerHandlers = make(remoteServerHandlers)
-	_protoMsgType         = reflect.TypeOf(proto.Message(nil)).Elem()
-)
+var _protoMsgType = reflect.TypeOf(proto.Message(nil)).Elem()
 
 func RegisterServerHandler(route string, sh interface{}) {
 	ht := reflect.TypeOf(sh)
@@ -92,7 +91,7 @@ func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte,
 }
 
 func RPC(route string, arg proto.Message, ret proto.Message) error {
-	serverType, ok := _remoteServerHandlers[route]
+	serverType, ok := RemoteServerHandlers[route]
 	if !ok {
 		return fmt.Errorf("server handler not found! route:%s", route)
 	}
