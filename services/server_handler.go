@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/zengjiwen/gameframe/codec"
@@ -21,7 +20,7 @@ type serverHandler struct {
 	argt reflect.Type
 }
 
-var RemoteServerHandlers = make(remoteServerHandlers)
+var _remoteServerHandlers = make(remoteServerHandlers)
 
 type remoteServerHandlers map[string]string
 
@@ -91,7 +90,7 @@ func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte,
 }
 
 func RPC(route string, arg proto.Message, ret proto.Message) error {
-	serverType, ok := RemoteServerHandlers[route]
+	serverType, ok := _remoteServerHandlers[route]
 	if !ok {
 		return fmt.Errorf("server handler not found! route:%s", route)
 	}
@@ -101,17 +100,18 @@ func RPC(route string, arg proto.Message, ret proto.Message) error {
 		return fmt.Errorf("get random server fail! server type:%s", serverType)
 	}
 
-	rpcClient, ok := rpc.Clients.ClientByServerID(serverInfo.ID)
+	rpcConn, ok := rpc.GetConn(serverInfo.ID)
 	if !ok {
 		return fmt.Errorf("rpc client not found! server id:%s", serverInfo.ID)
 	}
+	rpcClient := protos.NewRPCClient(rpcConn)
 
 	argBytes, err := proto.Marshal(arg)
 	if err != nil {
 		return err
 	}
 
-	resp, err := rpcClient.Call(context.Background(), &protos.CallRequest{
+	resp, err := rpc.TryBestCall(serverInfo.ID, rpcClient, &protos.CallRequest{
 		Route:    route,
 		Payload:  argBytes,
 		ServerID: env.ServerID,

@@ -10,10 +10,10 @@ import (
 type ServiceDiscovery interface {
 	GetRandomServer(serverType string) (*ServerInfo, bool)
 	GetServer(serverID string) (*ServerInfo, bool)
-	AddServerListener(sl ServerListener)
+	AddServerWatcher(watcher ServerWatcher)
 }
 
-type ServerListener interface {
+type ServerWatcher interface {
 	OnAddServer(serverInfo *ServerInfo)
 	OnRemoveServer(serverInfo *ServerInfo)
 }

@@ -7,7 +7,11 @@ import (
 	"net"
 )
 
-var _server *grpc.Server
+var _server = &server{}
+
+type server struct {
+	grpcServer *grpc.Server
+}
 
 func StartServer(service protos.RPCServer) error {
 	listener, err := net.Listen("tcp", env.ServiceAddr)
@@ -15,13 +19,13 @@ func StartServer(service protos.RPCServer) error {
 		return err
 	}
 
-	_server = grpc.NewServer()
-	protos.RegisterRPCServer(_server, service)
+	_server.grpcServer = grpc.NewServer()
+	protos.RegisterRPCServer(_server.grpcServer, service)
 	// todo add wait group
-	go _server.Serve(listener)
+	go _server.grpcServer.Serve(listener)
 	return nil
 }
 
 func StopServer() {
-	_server.GracefulStop()
+	_server.grpcServer.GracefulStop()
 }

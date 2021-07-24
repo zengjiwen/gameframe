@@ -4,6 +4,7 @@ import (
 	"github.com/zengjiwen/gameframe/codec"
 	"github.com/zengjiwen/gameframe/marshaler"
 	"github.com/zengjiwen/gameframe/servicediscovery"
+	"time"
 )
 
 var (
@@ -14,4 +15,5 @@ var (
 	Codec       = codec.NewPlain()
 	Marshaler   = marshaler.NewProtobuf()
 	SD          servicediscovery.ServiceDiscovery
+	RPCTimeout  = 5 * time.Second
 )

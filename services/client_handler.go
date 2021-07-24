@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/zengjiwen/gameframe/codec"
@@ -25,7 +24,7 @@ type clientHandler struct {
 	argt reflect.Type
 }
 
-var RemoteClientHandlers = make(remoteClientHandlers)
+var _remoteClientHandlers = make(remoteClientHandlers)
 
 type remoteClientHandlers map[string]string
 
@@ -67,7 +66,7 @@ func RegisterClientHandler(route string, ch interface{}) {
 func HandleClientMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
 	handler, ok := ClientHandlers[message.Route]
 	if !ok {
-		return HandleRemoteClientMsg(session, message)
+		return CallRemoteClientHandler(session, message)
 	}
 
 	argi := reflect.New(handler.argt.Elem()).Interface()
@@ -94,10 +93,11 @@ func HandleClientMsg(session *sessions.Session, message *codec.Message) ([]byte,
 	return retData, nil
 }
 
-func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
+func CallRemoteClientHandler(session *sessions.Session, message *codec.Message) ([]byte, error) {
 	if serverID, ok := session.Route2ServerId[message.Route]; ok {
-		if rpcClient, ok := rpc.Clients.ClientByServerID(serverID); ok {
-			respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
+		if rpcConn, ok := rpc.GetConn(serverID); ok {
+			rpcClient := protos.NewRPCClient(rpcConn)
+			resp, err := rpc.TryBestCall(serverID, rpcClient, &protos.CallRequest{
 				Route:    message.Route,
 				Payload:  message.Payload,
 				ServerID: env.ServerID,
@@ -105,13 +105,13 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([
 			if err != nil {
 				return nil, err
 			}
-			return respond.Data, nil
+			return resp.Data, nil
 		} else {
 			delete(session.Route2ServerId, message.Route)
 		}
 	}
 
-	serverType, ok := RemoteClientHandlers[message.Route]
+	serverType, ok := _remoteClientHandlers[message.Route]
 	if !ok {
 		return nil, ClientHandlerNotExistErr
 	}
@@ -121,13 +121,14 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([
 		return nil, fmt.Errorf("get random server fail! server type:%s", serverType)
 	}
 
-	rpcClient, ok := rpc.Clients.ClientByServerID(serverInfo.ID)
+	rpcConn, ok := rpc.GetConn(serverInfo.ID)
 	if !ok {
 		return nil, RemoteServerNotExistErr
 	}
+	rpcClient := protos.NewRPCClient(rpcConn)
 
 	session.Route2ServerId[message.Route] = serverInfo.ID
-	respond, err := rpcClient.Call(context.Background(), &protos.CallRequest{
+	resp, err := rpc.TryBestCall(serverInfo.ID, rpcClient, &protos.CallRequest{
 		Route:    message.Route,
 		Payload:  message.Payload,
 		ServerID: env.ServerID,
@@ -136,5 +137,5 @@ func HandleRemoteClientMsg(session *sessions.Session, message *codec.Message) ([
 		return nil, err
 	}
 
-	return respond.Data, nil
+	return resp.Data, nil
 }

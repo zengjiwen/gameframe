@@ -60,11 +60,11 @@ func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
 
 		go tcpServer.ListenAndServe()
 	}
-	if err := rpc.StartServer(services.NewStub()); err != nil {
+	if err := rpc.StartServer(services.NewService()); err != nil {
 		panic(err)
 	}
-	env.SD.AddServerListener(services.RemoteServerHandlers)
-	env.SD.AddServerListener(services.RemoteClientHandlers)
+	rpc.WatchServer()
+	services.WatchServer()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)

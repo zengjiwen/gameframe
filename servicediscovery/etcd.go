@@ -13,7 +13,7 @@ import (
 type etcd struct {
 	client  *clientv3.Client
 	leaseID clientv3.LeaseID
-	sl      []ServerListener
+	sl      []ServerWatcher
 	dieChan chan struct{}
 	err     error
 
@@ -38,10 +38,13 @@ func NewEtcd(addr string) ServiceDiscovery {
 		serverInfos:       make(map[string]*ServerInfo),
 		serverInfosByType: make(map[string][]*ServerInfo),
 	}
+	if err := sd.init(); err != nil {
+		panic(err)
+	}
 	return sd
 }
 
-func (e *etcd) Init() error {
+func (e *etcd) init() error {
 	_serverInfo = newServerInfo(env.ServerID, env.ServerType, env.ServiceAddr)
 
 	e.putMyself()
@@ -238,6 +241,6 @@ func (e *etcd) GetServer(serverID string) (*ServerInfo, bool) {
 	return serverInfo, ok
 }
 
-func (e *etcd) AddServerListener(sl ServerListener) {
+func (e *etcd) AddServerWatcher(sl ServerWatcher) {
 	e.sl = append(e.sl, sl)
 }
