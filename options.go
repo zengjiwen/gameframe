@@ -11,12 +11,20 @@ var _opts = options{
 }
 
 type options struct {
+	serviceAddr    string
 	concurrentMode string
 	codec          codec.Codec
 	marshaler      marshaler.Marshaler
 	clientAddr     string
 	sd             servicediscovery.ServiceDiscovery
 	sdAddr         string
+	standalone     bool
+}
+
+func WithServiceAddr(addr string) func(*options) {
+	return func(opts *options) {
+		opts.serviceAddr = addr
+	}
 }
 
 func WithConcurrentMode(concurrentMode string) func(*options) {
@@ -52,5 +60,11 @@ func WithServiceDiscovery(sd servicediscovery.ServiceDiscovery) func(*options) {
 func WithSDAddr(sdAddr string) func(*options) {
 	return func(opts *options) {
 		opts.sdAddr = sdAddr
+	}
+}
+
+func WithStandalone() func(*options) {
+	return func(opts *options) {
+		opts.standalone = true
 	}
 }

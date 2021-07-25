@@ -1,6 +1,7 @@
 package gameframe
 
 import (
+	"errors"
 	"fmt"
 	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
@@ -10,74 +11,76 @@ import (
 	"github.com/zengjiwen/gameframe/sessions"
 	"github.com/zengjiwen/gamenet"
 	"github.com/zengjiwen/gamenet/server"
-	"os"
-	"os/signal"
 	"strings"
 )
 
-var _gameFrame *gameFrame
+var _frontendServer gamenet.Server
 
-type gameFrame struct {
-}
-
-func Run(serverType, serviceAddr string, applies ...func(opts *options)) {
+func Run(serverType string, applies ...func(opts *options)) error {
 	for _, apply := range applies {
 		apply(&_opts)
 	}
 
 	env.ServerType = serverType
-	env.ServiceAddr = serviceAddr
+	if _opts.serviceAddr != "" {
+		env.ServiceAddr = _opts.serviceAddr
+	}
 	if _opts.codec != nil {
 		env.Codec = _opts.codec
 	}
 	if _opts.marshaler != nil {
 		env.Marshaler = _opts.marshaler
 	}
-	if _opts.sd != nil {
-		env.SD = _opts.sd
-	} else if _opts.sdAddr != "" {
-		env.SD = servicediscovery.NewEtcd(_opts.sdAddr)
-	} else {
-		panic("please specify sd or sd addr!")
+
+	if !_opts.standalone {
+		if _opts.serviceAddr == "" {
+			return errors.New("must specify service addr if not standalone!")
+		}
+
+		if _opts.sd != nil {
+			env.SD = _opts.sd
+		} else if _opts.sdAddr != "" {
+			env.SD = servicediscovery.NewEtcd(_opts.sdAddr)
+		} else {
+			return errors.New("please specify service discovery or service discovery addr!")
+		}
+
+		if err := rpc.StartServer(services.NewService()); err != nil {
+			return err
+		}
+		rpc.WatchServer()
+		services.WatchServer()
 	}
 
-	var tcpServer gamenet.Server
 	if _opts.clientAddr != "" {
 		cb := frontendEventCallback{}
 		if strings.ToLower(_opts.concurrentMode) == "csp" {
 			eventChan := make(chan func())
-			tcpServer = server.NewServer("tcp", _opts.clientAddr, cb, server.WithEventChan(eventChan))
+			_frontendServer = server.NewServer("tcp", _opts.clientAddr, cb, server.WithEventChan(eventChan))
 			go func() {
 				for event := range eventChan {
 					event()
 				}
 			}()
 		} else if strings.ToLower(_opts.concurrentMode) == "actor" {
-			tcpServer = server.NewServer("tcp", _opts.clientAddr, cb)
+			_frontendServer = server.NewServer("tcp", _opts.clientAddr, cb)
 		} else {
 			panic(fmt.Sprintf("incorrect concurrent mode: %s", _opts.concurrentMode))
 		}
 
-		go tcpServer.ListenAndServe()
-	}
-	if err := rpc.StartServer(services.NewService()); err != nil {
-		panic(err)
-	}
-	rpc.WatchServer()
-	services.WatchServer()
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, os.Kill)
-	select {
-	case <-c:
-		close(env.DieChan)
-	case <-env.DieChan:
+		go _frontendServer.ListenAndServe()
 	}
 
-	if tcpServer != nil {
-		tcpServer.Shutdown()
+	return nil
+}
+
+func Shutdown() error {
+	var err error
+	if _frontendServer != nil {
+		err = _frontendServer.Shutdown()
 	}
 	rpc.StopServer()
+	return err
 }
 
 type frontendEventCallback struct{}
