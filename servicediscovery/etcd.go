@@ -3,7 +3,6 @@ package servicediscovery
 import (
 	"context"
 	"github.com/coreos/etcd/storage/storagepb"
-	"github.com/zengjiwen/gameframe/env"
 	"go.etcd.io/etcd/clientv3"
 	"math/rand"
 	"sync"
@@ -20,9 +19,11 @@ type etcd struct {
 	mu                sync.RWMutex
 	serverInfos       map[string]*ServerInfo
 	serverInfosByType map[string][]*ServerInfo
+
+	frameDieChan chan struct{}
 }
 
-func NewEtcd(addr string) ServiceDiscovery {
+func NewEtcd(addr string, frameDieChan chan struct{}) ServiceDiscovery {
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints:   []string{addr},
 		DialTimeout: 5 * time.Second,
@@ -37,16 +38,12 @@ func NewEtcd(addr string) ServiceDiscovery {
 		dieChan:           make(chan struct{}),
 		serverInfos:       make(map[string]*ServerInfo),
 		serverInfosByType: make(map[string][]*ServerInfo),
-	}
-	if err := sd.init(); err != nil {
-		panic(err)
+		frameDieChan:      frameDieChan,
 	}
 	return sd
 }
 
-func (e *etcd) init() error {
-	_serverInfo = newServerInfo(env.ServerID, env.ServerType, env.ServiceAddr)
-
+func (e *etcd) Start() error {
 	e.putMyself()
 	e.lease()
 	e.getServers()
@@ -81,7 +78,7 @@ func (e *etcd) keepAlive(c <-chan *clientv3.LeaseKeepAliveResponse) {
 		select {
 		case _, ok := <-c:
 			if !ok {
-				env.DieChan <- struct{}{}
+				e.frameDieChan <- struct{}{}
 				return
 			}
 		case <-e.dieChan:
@@ -100,7 +97,7 @@ func (e *etcd) watch() {
 		select {
 		case resp, ok := <-c:
 			if !ok || resp.Err() != nil {
-				env.DieChan <- struct{}{}
+				e.frameDieChan <- struct{}{}
 				return
 			}
 
@@ -137,7 +134,7 @@ func (e *etcd) putMyself() {
 	}
 
 	_, err = e.client.Put(context.Background(),
-		genSDKey(env.ServerID, env.ServerType),
+		genSDKey(_serverInfo.ID, _serverInfo.Type),
 		value, clientv3.WithLease(e.leaseID))
 }
 
@@ -243,4 +240,9 @@ func (e *etcd) GetServer(serverID string) (*ServerInfo, bool) {
 
 func (e *etcd) AddServerWatcher(sl ServerWatcher) {
 	e.sl = append(e.sl, sl)
+}
+
+func (e *etcd) Close() error {
+	close(e.dieChan)
+	return e.client.Close()
 }

@@ -3,7 +3,7 @@ package codec
 // todo pool
 type plain struct{}
 
-func NewPlain() Codec {
+func newPlain() Codec {
 	return plain{}
 }
 

@@ -3,72 +3,83 @@ package gameframe
 import (
 	"errors"
 	"fmt"
-	"github.com/zengjiwen/gameframe/env"
+	"github.com/zengjiwen/gameframe/codec"
+	"github.com/zengjiwen/gameframe/marshaler"
 	"github.com/zengjiwen/gameframe/rpc"
+	"github.com/zengjiwen/gameframe/service"
 	"github.com/zengjiwen/gameframe/servicediscovery"
-	"github.com/zengjiwen/gameframe/services"
-	"github.com/zengjiwen/gameframe/services/proxy"
 	"github.com/zengjiwen/gameframe/sessions"
+	"github.com/zengjiwen/gameframe/sessions/proxy"
 	"github.com/zengjiwen/gamenet"
 	"github.com/zengjiwen/gamenet/server"
 	"strings"
 )
 
-var _frontendServer gamenet.Server
+var _gameFrame = &gameFrame{
+	dieChan: make(chan struct{}),
+	opts: options{
+		concurrentMode: "actor",
+	},
+}
 
-func Run(serverType string, applies ...func(opts *options)) error {
-	for _, apply := range applies {
-		apply(&_opts)
+type gameFrame struct {
+	serverID       string
+	serverType     string
+	dieChan        chan struct{}
+	opts           options
+	frontendServer gamenet.Server
+}
+
+func Run(serverID, serverType string, opts ...Option) error {
+	_gameFrame.serverID = serverID
+	_gameFrame.serverType = serverType
+
+	for _, opt := range opts {
+		opt.apply(&_gameFrame.opts)
 	}
 
-	env.ServerType = serverType
-	if _opts.serviceAddr != "" {
-		env.ServiceAddr = _opts.serviceAddr
-	}
-	if _opts.codec != nil {
-		env.Codec = _opts.codec
-	}
-	if _opts.marshaler != nil {
-		env.Marshaler = _opts.marshaler
-	}
-
-	if !_opts.standalone {
-		if _opts.serviceAddr == "" {
+	gOpts := &_gameFrame.opts
+	if !gOpts.standalone {
+		if gOpts.serviceAddr == "" {
 			return errors.New("must specify service addr if not standalone!")
 		}
 
-		if _opts.sd != nil {
-			env.SD = _opts.sd
-		} else if _opts.sdAddr != "" {
-			env.SD = servicediscovery.NewEtcd(_opts.sdAddr)
+		servicediscovery.InitServerInfo(_gameFrame.serverID, _gameFrame.serverType, gOpts.serviceAddr)
+		service.FillServerInfo()
+		if servicediscovery.Get() == nil && gOpts.sdAddr != "" {
+			servicediscovery.Set(servicediscovery.NewEtcd(gOpts.sdAddr, _gameFrame.dieChan))
+			if err := servicediscovery.Get().Start(); err != nil {
+				return err
+			}
 		} else {
 			return errors.New("please specify service discovery or service discovery addr!")
 		}
 
-		if err := rpc.StartServer(services.NewService()); err != nil {
+		if err := rpc.StartServer(gOpts.serviceAddr, service.NewService()); err != nil {
 			return err
 		}
+		rpc.InitClients()
 		rpc.WatchServer()
-		services.WatchServer()
+		service.WatchServer()
 	}
 
-	if _opts.clientAddr != "" {
+	if gOpts.clientAddr != "" {
 		cb := frontendEventCallback{}
-		if strings.ToLower(_opts.concurrentMode) == "csp" {
+		if strings.ToLower(gOpts.concurrentMode) == "csp" {
 			eventChan := make(chan func())
-			_frontendServer = server.NewServer("tcp", _opts.clientAddr, cb, server.WithEventChan(eventChan))
+			_gameFrame.frontendServer = server.NewServer("tcp", gOpts.clientAddr, cb, server.WithEventChan(eventChan))
 			go func() {
 				for event := range eventChan {
 					event()
 				}
 			}()
-		} else if strings.ToLower(_opts.concurrentMode) == "actor" {
-			_frontendServer = server.NewServer("tcp", _opts.clientAddr, cb)
+		} else if strings.ToLower(gOpts.concurrentMode) == "actor" {
+			_gameFrame.frontendServer = server.NewServer("tcp", gOpts.clientAddr, cb)
 		} else {
-			panic(fmt.Sprintf("incorrect concurrent mode: %s", _opts.concurrentMode))
+			panic(fmt.Sprintf("incorrect concurrent mode: %s", gOpts.concurrentMode))
 		}
 
-		go _frontendServer.ListenAndServe()
+		go _gameFrame.frontendServer.ListenAndServe()
 	}
 
 	return nil
@@ -76,10 +87,24 @@ func Run(serverType string, applies ...func(opts *options)) error {
 
 func Shutdown() error {
 	var err error
-	if _frontendServer != nil {
-		err = _frontendServer.Shutdown()
+	if _gameFrame.frontendServer != nil {
+		err = _gameFrame.frontendServer.Shutdown()
 	}
-	rpc.StopServer()
+
+	if !_gameFrame.opts.standalone {
+		if err == nil {
+			err = rpc.CloseClients()
+		} else {
+			rpc.CloseClients()
+		}
+		rpc.StopServer()
+
+		if err == nil {
+			err = servicediscovery.Get().Close()
+		} else {
+			servicediscovery.Get().Close()
+		}
+	}
 	return err
 }
 
@@ -106,15 +131,31 @@ func (frontendEventCallback) OnRecvData(conn gamenet.Conn, data []byte) {
 		return
 	}
 
-	m, err := env.Codec.Decode(data)
+	m, err := codec.Get().Decode(data)
 	if err != nil {
 		return
 	}
 
-	ret, err := services.HandleClientMsg(session, m)
+	ret, err := service.HandleClientMsg(session, m)
 	if err != nil {
 		return
 	}
 
 	conn.Send(ret)
+}
+
+func RegisterCodec(cd codec.Codec) {
+	codec.Set(cd)
+}
+
+func RegisterMarshaler(ma marshaler.Marshaler) {
+	marshaler.Set(ma)
+}
+
+func RegisterServiceDiscovery(sd servicediscovery.ServiceDiscovery) {
+	servicediscovery.Set(sd)
+}
+
+func GetDieChan() chan struct{} {
+	return _gameFrame.dieChan
 }

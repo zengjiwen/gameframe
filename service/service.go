@@ -1,14 +1,14 @@
-package services
+package service
 
 import (
 	"context"
 	"errors"
 	"github.com/zengjiwen/gameframe/codec"
-	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
-	"github.com/zengjiwen/gameframe/services/proxy"
+	"github.com/zengjiwen/gameframe/servicediscovery"
 	"github.com/zengjiwen/gameframe/sessions"
+	"github.com/zengjiwen/gameframe/sessions/proxy"
 )
 
 type service struct{}
@@ -26,7 +26,7 @@ func (s *service) Call(_ context.Context, request *protos.CallRequest) (*protos.
 	backendProxy := proxy.NewBackend(request.ServerID, conn)
 	session := sessions.New(backendProxy)
 	message := codec.NewMessage(request.Route, request.Payload)
-	if _, ok := ClientHandlers[request.Route]; ok {
+	if _, ok := _clientHandlers[request.Route]; ok {
 		retData, err := HandleClientMsg(session, message)
 		return &protos.CallRespond{Data: retData}, err
 	} else if _, ok := ServerHandlers[request.Route]; ok {
@@ -47,6 +47,15 @@ func (s *service) Send(_ context.Context, request *protos.SendRequest) (*protos.
 }
 
 func WatchServer() {
-	env.SD.AddServerWatcher(_remoteServerHandlers)
-	env.SD.AddServerWatcher(_remoteClientHandlers)
+	servicediscovery.Get().AddServerWatcher(_remoteServerHandlers)
+	servicediscovery.Get().AddServerWatcher(_remoteClientHandlers)
+}
+
+func FillServerInfo() {
+	for ch := range _clientHandlers {
+		servicediscovery.GetServerInfo().ClientHandlers = append(servicediscovery.GetServerInfo().ClientHandlers, ch)
+	}
+	for sh := range ServerHandlers {
+		servicediscovery.GetServerInfo().ServerHandlers = append(servicediscovery.GetServerInfo().ServerHandlers, sh)
+	}
 }

@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/servicediscovery"
 	"google.golang.org/grpc"
@@ -12,9 +11,7 @@ import (
 	"time"
 )
 
-var _clients = &clients{
-	conns: make(map[string]*grpc.ClientConn),
-}
+var _clients *clients
 
 type clients struct {
 	mu    sync.RWMutex
@@ -51,6 +48,27 @@ func (c *clients) OnRemoveServer(server *servicediscovery.ServerInfo) {
 	}
 }
 
+func InitClients() {
+	_clients = &clients{
+		conns: make(map[string]*grpc.ClientConn),
+	}
+}
+
+func CloseClients() error {
+	var err error
+	_clients.mu.Lock()
+	for _, conn := range _clients.conns {
+		if err == nil {
+			err = conn.Close()
+		} else {
+			conn.Close()
+		}
+	}
+	_clients.mu.Unlock()
+	_clients.conns = make(map[string]*grpc.ClientConn)
+	return err
+}
+
 func GetConn(serverID string) (*grpc.ClientConn, bool) {
 	_clients.mu.RLock()
 	defer _clients.mu.RUnlock()
@@ -60,7 +78,7 @@ func GetConn(serverID string) (*grpc.ClientConn, bool) {
 }
 
 func WatchServer() {
-	env.SD.AddServerWatcher(_clients)
+	servicediscovery.Get().AddServerWatcher(_clients)
 }
 
 func RemoveConn(serverID string) {
@@ -75,7 +93,7 @@ func RemoveConn(serverID string) {
 }
 
 func TryBestCall(serverID string, client protos.RPCClient, request *protos.CallRequest) (*protos.CallRespond, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), env.RPCTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var tmpDelay time.Duration

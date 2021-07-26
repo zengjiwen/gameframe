@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"google.golang.org/grpc"
 	"net"
@@ -13,8 +12,8 @@ type server struct {
 	grpcServer *grpc.Server
 }
 
-func StartServer(service protos.RPCServer) error {
-	listener, err := net.Listen("tcp", env.ServiceAddr)
+func StartServer(addr string, service protos.RPCServer) error {
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}

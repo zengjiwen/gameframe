@@ -11,7 +11,7 @@ var (
 
 type protobuf struct{}
 
-func NewProtobuf() Marshaler {
+func newProtobuf() Marshaler {
 	return protobuf{}
 }
 

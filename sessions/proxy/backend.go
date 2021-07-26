@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"github.com/zengjiwen/gameframe/env"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"google.golang.org/grpc"
@@ -29,7 +28,7 @@ func (b *backend) Send(route string, payload []byte) error {
 		Payload: payload,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), env.RPCTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var tmpDelay time.Duration

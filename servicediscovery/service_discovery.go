@@ -3,14 +3,25 @@ package servicediscovery
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/zengjiwen/gameframe/services"
 	"strings"
 )
 
+var _sd ServiceDiscovery
+
 type ServiceDiscovery interface {
+	Start() error
 	GetRandomServer(serverType string) (*ServerInfo, bool)
 	GetServer(serverID string) (*ServerInfo, bool)
 	AddServerWatcher(watcher ServerWatcher)
+	Close() error
+}
+
+func Get() ServiceDiscovery {
+	return _sd
+}
+
+func Set(sd ServiceDiscovery) {
+	_sd = sd
 }
 
 type ServerWatcher interface {
@@ -20,6 +31,8 @@ type ServerWatcher interface {
 
 const _sdPrefix = "servers/"
 
+var _serverInfo *ServerInfo
+
 type ServerInfo struct {
 	ID             string   `json:"id,omitempty"`
 	Type           string   `json:"type,omitempty"`
@@ -28,23 +41,17 @@ type ServerInfo struct {
 	ServerHandlers []string `json:"server_handlers,omitempty"`
 }
 
-func newServerInfo(serverID, serverType, serviceAddr string) *ServerInfo {
-	serverInfo := &ServerInfo{
+func InitServerInfo(serverID, serverType, serviceAddr string) {
+	_serverInfo = &ServerInfo{
 		ID:   serverID,
 		Type: serverType,
 		Addr: serviceAddr,
 	}
-
-	for ch := range services.ClientHandlers {
-		serverInfo.ClientHandlers = append(serverInfo.ClientHandlers, ch)
-	}
-	for sh := range services.ServerHandlers {
-		serverInfo.ServerHandlers = append(serverInfo.ServerHandlers, sh)
-	}
-	return serverInfo
 }
 
-var _serverInfo *ServerInfo
+func GetServerInfo() *ServerInfo {
+	return _serverInfo
+}
 
 func parseSDKey(sdKey string) (string, string, error) {
 	serverMetaData := strings.Split(sdKey, "/")

@@ -1,10 +1,10 @@
-package services
+package service
 
 import (
 	"errors"
 	"fmt"
 	"github.com/zengjiwen/gameframe/codec"
-	"github.com/zengjiwen/gameframe/env"
+	"github.com/zengjiwen/gameframe/marshaler"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/servicediscovery"
@@ -12,12 +12,7 @@ import (
 	"reflect"
 )
 
-var (
-	ClientHandlerNotExistErr = errors.New("client handler not exist")
-	RemoteServerNotExistErr  = errors.New("remote server not exist")
-)
-
-var ClientHandlers = make(map[string]*clientHandler)
+var _clientHandlers = make(map[string]*clientHandler)
 
 type clientHandler struct {
 	funv reflect.Value
@@ -60,17 +55,17 @@ func RegisterClientHandler(route string, ch interface{}) {
 		funv: reflect.ValueOf(ch),
 		argt: ht.In(0),
 	}
-	ClientHandlers[route] = handler
+	_clientHandlers[route] = handler
 }
 
 func HandleClientMsg(session *sessions.Session, message *codec.Message) ([]byte, error) {
-	handler, ok := ClientHandlers[message.Route]
+	handler, ok := _clientHandlers[message.Route]
 	if !ok {
 		return CallRemoteClientHandler(session, message)
 	}
 
 	argi := reflect.New(handler.argt.Elem()).Interface()
-	if err := env.Marshaler.Unmarshal(message.Payload, argi); err != nil {
+	if err := marshaler.Get().Unmarshal(message.Payload, argi); err != nil {
 		return nil, err
 	}
 
@@ -79,13 +74,13 @@ func HandleClientMsg(session *sessions.Session, message *codec.Message) ([]byte,
 		return nil, errors.New("rets len isn't 1")
 	}
 
-	payLoad, err := env.Marshaler.Marshal(rets[0])
+	payLoad, err := marshaler.Get().Marshal(rets[0])
 	if err != nil {
 		return nil, err
 	}
 
 	message.Payload = payLoad
-	retData, err := env.Codec.Encode(message)
+	retData, err := codec.Get().Encode(message)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +95,7 @@ func CallRemoteClientHandler(session *sessions.Session, message *codec.Message) 
 			resp, err := rpc.TryBestCall(serverID, rpcClient, &protos.CallRequest{
 				Route:    message.Route,
 				Payload:  message.Payload,
-				ServerID: env.ServerID,
+				ServerID: servicediscovery.GetServerInfo().ID,
 			})
 			if err != nil {
 				return nil, err
@@ -113,17 +108,17 @@ func CallRemoteClientHandler(session *sessions.Session, message *codec.Message) 
 
 	serverType, ok := _remoteClientHandlers[message.Route]
 	if !ok {
-		return nil, ClientHandlerNotExistErr
+		return nil, errors.New("client handler not exist")
 	}
 
-	serverInfo, ok := env.SD.GetRandomServer(serverType)
+	serverInfo, ok := servicediscovery.Get().GetRandomServer(serverType)
 	if !ok {
 		return nil, fmt.Errorf("get random server fail! server type:%s", serverType)
 	}
 
 	rpcConn, ok := rpc.GetConn(serverInfo.ID)
 	if !ok {
-		return nil, RemoteServerNotExistErr
+		return nil, errors.New("remote server not exist")
 	}
 	rpcClient := protos.NewRPCClient(rpcConn)
 
@@ -131,7 +126,7 @@ func CallRemoteClientHandler(session *sessions.Session, message *codec.Message) 
 	resp, err := rpc.TryBestCall(serverInfo.ID, rpcClient, &protos.CallRequest{
 		Route:    message.Route,
 		Payload:  message.Payload,
-		ServerID: env.ServerID,
+		ServerID: servicediscovery.GetServerInfo().ID,
 	})
 	if err != nil {
 		return nil, err

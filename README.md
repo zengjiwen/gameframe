@@ -14,6 +14,7 @@ game micro service frame
 in developing...
 
 example:
+
 ```go
 package main
 
@@ -22,7 +23,7 @@ import (
 	"flag"
 	"github.com/zengjiwen/gameframe"
 	"github.com/zengjiwen/gameframe/env"
-	"github.com/zengjiwen/gameframe/services"
+	"github.com/zengjiwen/gameframe/service"
 	"os"
 	"os/signal"
 )

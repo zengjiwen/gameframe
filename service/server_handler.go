@@ -1,10 +1,10 @@
-package services
+package service
 
 import (
 	"errors"
 	"fmt"
 	"github.com/zengjiwen/gameframe/codec"
-	"github.com/zengjiwen/gameframe/env"
+	"github.com/zengjiwen/gameframe/marshaler"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/servicediscovery"
@@ -66,7 +66,7 @@ func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte,
 	}
 
 	argi := reflect.New(handler.argt.Elem()).Interface()
-	if err := env.Marshaler.Unmarshal(message.Payload, argi); err != nil {
+	if err := marshaler.Get().Unmarshal(message.Payload, argi); err != nil {
 		return nil, err
 	}
 
@@ -75,13 +75,13 @@ func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte,
 		return nil, errors.New("rets len isn't 1")
 	}
 
-	payLoad, err := env.Marshaler.Marshal(rets[0])
+	payLoad, err := marshaler.Get().Marshal(rets[0])
 	if err != nil {
 		return nil, err
 	}
 
 	message.Payload = payLoad
-	retData, err := env.Codec.Encode(message)
+	retData, err := codec.Get().Encode(message)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func RPC(route string, arg proto.Message, ret proto.Message) error {
 		return fmt.Errorf("server handler not found! route:%s", route)
 	}
 
-	serverInfo, ok := env.SD.GetRandomServer(serverType)
+	serverInfo, ok := servicediscovery.Get().GetRandomServer(serverType)
 	if !ok {
 		return fmt.Errorf("get random server fail! server type:%s", serverType)
 	}
@@ -114,7 +114,7 @@ func RPC(route string, arg proto.Message, ret proto.Message) error {
 	resp, err := rpc.TryBestCall(serverInfo.ID, rpcClient, &protos.CallRequest{
 		Route:    route,
 		Payload:  argBytes,
-		ServerID: env.ServerID,
+		ServerID: servicediscovery.GetServerInfo().ID,
 	})
 	if err != nil {
 		return err

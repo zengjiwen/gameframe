@@ -2,7 +2,7 @@ package gameframe
 
 import (
 	"errors"
-	"github.com/zengjiwen/gameframe/env"
+	"github.com/zengjiwen/gameframe/marshaler"
 	"github.com/zengjiwen/gameframe/sessions"
 	"sync"
 )
@@ -23,7 +23,7 @@ func NewGroup(n string) *Group {
 }
 
 func (g *Group) Broadcast(route string, arg interface{}) {
-	payload, err := env.Marshaler.Marshal(arg)
+	payload, err := marshaler.Get().Marshal(arg)
 	if err != nil {
 		return
 	}
@@ -36,7 +36,7 @@ func (g *Group) Broadcast(route string, arg interface{}) {
 }
 
 func (g *Group) Multicast(route string, arg interface{}, filter func(*sessions.Session) bool) {
-	payload, err := env.Marshaler.Marshal(arg)
+	payload, err := marshaler.Get().Marshal(arg)
 	if err != nil {
 		return
 	}

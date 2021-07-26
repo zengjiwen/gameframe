@@ -1,7 +1,7 @@
 package sessions
 
 import (
-	"github.com/zengjiwen/gameframe/services/proxy"
+	"github.com/zengjiwen/gameframe/sessions/proxy"
 	"sync"
 	"sync/atomic"
 )
