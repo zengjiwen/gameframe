@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"github.com/zengjiwen/gameframe"
-	"github.com/zengjiwen/gameframe/service"
+	"log"
 	"os"
 	"os/signal"
 )
@@ -18,43 +18,48 @@ func main() {
 	flag.Parse()
 
 	if *_serverType == "gateway" {
-		service.RegisterClientHandler("hello", handleHello)
+		gameframe.RegisterClientHandler("hello", handleHello)
 		if err := gameframe.Run(*_serverID, *_serverType,
 			gameframe.WithClientAddr(*_clientAddr),
 			gameframe.WithConcurrentMode("actor"),
 			gameframe.WithServiceAddr(*_serviceAddr)); err != nil {
-			panic(err)
+			log.Println(err)
+			return
 		}
 	} else if *_serverType == "game" {
 		room := Room{}
-		service.RegisterClientHandler("room.joinRoom", room.joinRoom)
+		gameframe.RegisterClientHandler("room.joinRoom", room.joinRoom)
 		if err := gameframe.Run(*_serverID, *_serverType,
 			gameframe.WithConcurrentMode("csp"),
 			gameframe.WithServiceAddr(*_serviceAddr)); err != nil {
-			panic(err)
+			log.Println(err)
+			return
 		}
 	} else {
-		panic(errors.New("incorrect server type"))
+		log.Println(errors.New("incorrect server type"))
+		return
 	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
 	select {
-	case <-c:
-	case <-gameframe.GetDieChan():
+	case sig := <-c:
+		log.Println("receive signal: %s", sig.String())
+	case err := <-gameframe.GetDieChan():
+		log.Println(err)
 	}
 
 	if err := gameframe.Shutdown(); err != nil {
-		panic(err)
+		log.Println(err)
 	}
 }
 
-func handleHello() {
+func handleHello(session *gameframe.Session) {
 
 }
 
 type Room struct{}
 
-func (r Room) joinRoom() {
+func (r Room) joinRoom(session *gameframe.Session) {
 
 }

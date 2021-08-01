@@ -2,6 +2,7 @@ package servicediscovery
 
 import (
 	"context"
+	"errors"
 	"github.com/coreos/etcd/storage/storagepb"
 	"go.etcd.io/etcd/clientv3"
 	"math/rand"
@@ -20,10 +21,10 @@ type etcd struct {
 	serverInfos       map[string]*ServerInfo
 	serverInfosByType map[string][]*ServerInfo
 
-	frameDieChan chan struct{}
+	frameDieChan chan error
 }
 
-func NewEtcd(addr string, frameDieChan chan struct{}) ServiceDiscovery {
+func NewEtcd(addr string, frameDieChan chan error) ServiceDiscovery {
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints:   []string{addr},
 		DialTimeout: 5 * time.Second,
@@ -78,7 +79,7 @@ func (e *etcd) keepAlive(c <-chan *clientv3.LeaseKeepAliveResponse) {
 		select {
 		case _, ok := <-c:
 			if !ok {
-				e.frameDieChan <- struct{}{}
+				e.frameDieChan <- errors.New("etcd keep alive fail")
 				return
 			}
 		case <-e.dieChan:
@@ -96,8 +97,12 @@ func (e *etcd) watch() {
 	for {
 		select {
 		case resp, ok := <-c:
-			if !ok || resp.Err() != nil {
-				e.frameDieChan <- struct{}{}
+			if !ok {
+				e.frameDieChan <- errors.New("watch etcd fail")
+				return
+			}
+			if err := resp.Err(); err != nil {
+				e.frameDieChan <- err
 				return
 			}
 

@@ -2,27 +2,31 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"time"
 )
 
 type backend struct {
-	serverID  string
-	rpcClient protos.RPCClient
+	frontendServerID string
 }
 
-func NewBackend(serverID string, conn *grpc.ClientConn) Proxy {
+func NewBackend(frontendServerID string) Proxy {
 	return &backend{
-		serverID:  serverID,
-		rpcClient: protos.NewRPCClient(conn),
+		frontendServerID: frontendServerID,
 	}
 }
 
 func (b *backend) Send(route string, payload []byte) error {
+	rpcConn, ok := rpc.GetConn(b.frontendServerID)
+	if !ok {
+		return errors.New("rpc conn not exist!")
+	}
+	rpcClient := protos.NewRPCClient(rpcConn)
+
 	request := &protos.SendRequest{
 		Route:   route,
 		Payload: payload,
@@ -34,12 +38,12 @@ func (b *backend) Send(route string, payload []byte) error {
 	var tmpDelay time.Duration
 	var retryCount int
 	for {
-		_, err := b.rpcClient.Send(ctx, request)
+		_, err := rpcClient.Send(ctx, request)
 		if err != nil {
 			if s, ok := status.FromError(err); ok && s.Code() == codes.DeadlineExceeded {
 				retryCount++
 				if retryCount > 10 {
-					rpc.RemoveConn(b.serverID)
+					rpc.RemoveConn(b.frontendServerID)
 					return err
 				}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/zengjiwen/gameframe/codec"
-	"github.com/zengjiwen/gameframe/rpc"
 	"github.com/zengjiwen/gameframe/rpc/protos"
 	"github.com/zengjiwen/gameframe/servicediscovery"
 	"github.com/zengjiwen/gameframe/sessions"
@@ -18,12 +17,7 @@ func NewService() *service {
 }
 
 func (s *service) Call(_ context.Context, request *protos.CallRequest) (*protos.CallRespond, error) {
-	conn, ok := rpc.GetConn(request.ServerID)
-	if !ok {
-		return nil, errors.New("client rpc not exist!")
-	}
-
-	backendProxy := proxy.NewBackend(request.ServerID, conn)
+	backendProxy := proxy.NewBackend(request.ServerID)
 	session := sessions.New(backendProxy)
 	message := codec.NewMessage(request.Route, request.Payload)
 	if _, ok := _clientHandlers[request.Route]; ok {

@@ -45,7 +45,7 @@ func RegisterServerHandler(route string, sh interface{}) {
 	if ht.Kind() != reflect.Func {
 		return
 	}
-	if ht.NumIn() != 2 || ht.In(0) != _sessionType || ht.In(1) != _protoMsgType {
+	if ht.NumIn() != 1 || ht.In(0) != _protoMsgType {
 		return
 	}
 	if ht.NumOut() != 1 || ht.Out(0) != _protoMsgType {
@@ -70,7 +70,7 @@ func HandleServerMsg(session *sessions.Session, message *codec.Message) ([]byte,
 		return nil, err
 	}
 
-	rets := handler.funv.Call([]reflect.Value{reflect.ValueOf(session), reflect.ValueOf(argi)})
+	rets := handler.funv.Call([]reflect.Value{reflect.ValueOf(argi)})
 	if len(rets) != 1 {
 		return nil, errors.New("rets len isn't 1")
 	}

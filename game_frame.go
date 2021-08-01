@@ -12,11 +12,12 @@ import (
 	"github.com/zengjiwen/gameframe/sessions/proxy"
 	"github.com/zengjiwen/gamenet"
 	"github.com/zengjiwen/gamenet/server"
+	"log"
 	"strings"
 )
 
 var _gameFrame = &gameFrame{
-	dieChan: make(chan struct{}),
+	dieChan: make(chan error),
 	opts: options{
 		concurrentMode: "actor",
 	},
@@ -25,10 +26,12 @@ var _gameFrame = &gameFrame{
 type gameFrame struct {
 	serverID       string
 	serverType     string
-	dieChan        chan struct{}
+	dieChan        chan error
 	opts           options
 	frontendServer gamenet.Server
 }
+
+type Session sessions.Session
 
 func Run(serverID, serverType string, opts ...Option) error {
 	_gameFrame.serverID = serverID
@@ -67,19 +70,21 @@ func Run(serverID, serverType string, opts ...Option) error {
 		cb := frontendEventCallback{}
 		if strings.ToLower(gOpts.concurrentMode) == "csp" {
 			eventChan := make(chan func())
-			_gameFrame.frontendServer = server.NewServer("tcp", gOpts.clientAddr, cb, server.WithEventChan(eventChan))
+			_gameFrame.frontendServer = server.NewServer("TCP", gOpts.clientAddr, cb, server.WithEventChan(eventChan))
 			go func() {
 				for event := range eventChan {
 					event()
 				}
 			}()
 		} else if strings.ToLower(gOpts.concurrentMode) == "actor" {
-			_gameFrame.frontendServer = server.NewServer("tcp", gOpts.clientAddr, cb)
+			_gameFrame.frontendServer = server.NewServer("TCP", gOpts.clientAddr, cb)
 		} else {
-			panic(fmt.Sprintf("incorrect concurrent mode: %s", gOpts.concurrentMode))
+			return fmt.Errorf("incorrect concurrent mode: %s", gOpts.concurrentMode)
 		}
 
-		go _gameFrame.frontendServer.ListenAndServe()
+		go func() {
+			_gameFrame.dieChan <- _gameFrame.frontendServer.ListenAndServe()
+		}()
 	}
 
 	return nil
@@ -126,6 +131,12 @@ func (frontendEventCallback) OnConnClosed(conn gamenet.Conn) {
 }
 
 func (frontendEventCallback) OnRecvData(conn gamenet.Conn, data []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(r)
+		}
+	}()
+
 	session, ok := conn.UserData().(*sessions.Session)
 	if !ok {
 		return
@@ -144,6 +155,14 @@ func (frontendEventCallback) OnRecvData(conn gamenet.Conn, data []byte) {
 	conn.Send(ret)
 }
 
+func RegisterClientHandler(route string, ch interface{}) {
+	service.RegisterClientHandler(route, ch)
+}
+
+func RegisterServerHandler(route string, sh interface{}) {
+	service.RegisterServerHandler(route, sh)
+}
+
 func RegisterCodec(cd codec.Codec) {
 	codec.Set(cd)
 }
@@ -156,6 +175,6 @@ func RegisterServiceDiscovery(sd servicediscovery.ServiceDiscovery) {
 	servicediscovery.Set(sd)
 }
 
-func GetDieChan() chan struct{} {
+func GetDieChan() chan error {
 	return _gameFrame.dieChan
 }
